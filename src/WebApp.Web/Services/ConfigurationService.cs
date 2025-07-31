@@ -69,24 +69,24 @@ public class ConfigurationService : IConfigurationService
         }
     }
 
-    public async Task<bool> ValidateConfigurationAsync(AIConfiguration configuration)
+    public Task<bool> ValidateConfigurationAsync(AIConfiguration configuration)
     {
         try
         {
             // Validate required fields
             if (string.IsNullOrEmpty(configuration.HuggingFaceToken))
             {
-                return false;
+                return Task.FromResult(false);
             }
 
             if (!configuration.HasValidAIProvider)
             {
-                return false;
+                return Task.FromResult(false);
             }
 
             if (string.IsNullOrEmpty(configuration.ModelName))
             {
-                return false;
+                return Task.FromResult(false);
             }
 
             // Validate URLs if provided
@@ -94,7 +94,7 @@ public class ConfigurationService : IConfigurationService
             {
                 if (!Uri.TryCreate(configuration.AzureOpenAIEndpoint, UriKind.Absolute, out _))
                 {
-                    return false;
+                    return Task.FromResult(false);
                 }
             }
 
@@ -102,16 +102,16 @@ public class ConfigurationService : IConfigurationService
             {
                 if (!Uri.TryCreate(configuration.HuggingFaceMcpServer, UriKind.Absolute, out _))
                 {
-                    return false;
+                    return Task.FromResult(false);
                 }
             }
 
-            return true;
+            return Task.FromResult(true);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error validating configuration");
-            return false;
+            return Task.FromResult(false);
         }
     }
 }
