@@ -35,7 +35,7 @@ public class AIService : IAIService
                 new ChatMessage(ChatRole.User, message)
             };
 
-            var chatResponse = await chatClient.CompleteAsync(chatMessages, null, cancellationToken);
+            var chatResponse = await chatClient.CompleteAsync(chatMessages, cancellationToken: cancellationToken);
             
             return ProcessResponse(chatResponse.Message);
         }

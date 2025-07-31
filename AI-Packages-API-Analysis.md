@@ -21,68 +21,134 @@
 ```csharp
 public interface IChatClient
 {
-    // 현재 분석 필요: CompleteAsync 메서드가 존재하지 않는 것으로 보임
-    // 실제 메서드명 확인 필요
+    Task<ChatCompletion> CompleteAsync(IList<ChatMessage> chatMessages, ChatOptions options = null, CancellationToken cancellationToken = default);
+    // 기타 메서드들...
 }
 ```
 
-### 현재 발견된 문제
-- `IChatClient.CompleteAsync()` 메서드가 존재하지 않음
-- 올바른 메서드명과 시그니처 확인 필요
+### 올바른 사용법
+
+#### 기본 사용법
+```csharp
+using Microsoft.Extensions.AI;
+
+IChatClient client = // ... 클라이언트 초기화
+var response = await client.CompleteAsync([
+    new ChatMessage(ChatRole.User, "What is AI?")
+]);
+Console.WriteLine(response.Message);
+```
+
+#### 다중 메시지 대화
+```csharp
+var response = await client.CompleteAsync([
+    new ChatMessage(ChatRole.System, "You are a helpful AI assistant"),
+    new ChatMessage(ChatRole.User, "What is AI?")
+]);
+```
+
+### 응답 처리
+- 반환 타입: `ChatCompletion`
+- 메시지 접근: `response.Message`
+- 사용량 정보: `response.Usage` (UsageDetails)
 
 ## Azure.AI.OpenAI (2.1.0)
 
-### AzureOpenAIClient
+### AzureOpenAIClient 초기화
 ```csharp
-public class AzureOpenAIClient
-{
-    public AzureOpenAIClient(Uri endpoint, ApiKeyCredential credential);
-    public ChatClient GetChatClient(string deploymentName);
-}
+using Azure.AI.OpenAI;
+using System.ClientModel;
+
+// Azure OpenAI 서비스용
+var azureClient = new AzureOpenAIClient(
+    new Uri("https://your-resource.openai.azure.com"), 
+    new ApiKeyCredential("your-api-key")
+);
+
+// GitHub Models용
+var githubClient = new AzureOpenAIClient(
+    new Uri("https://models.inference.ai.azure.com"), 
+    new ApiKeyCredential("your-github-token")
+);
 ```
 
-### ChatClient
+### ChatClient를 IChatClient로 변환
 ```csharp
-public class ChatClient
-{
-    // Microsoft.Extensions.AI의 IChatClient로 변환하는 확장 메서드가 필요
-    // AsIChatClient() 확장 메서드 사용
-}
+using Microsoft.Extensions.AI;
+
+// AzureOpenAIClient에서 ChatClient 가져오기
+var chatClient = azureClient.GetChatClient("gpt-4o-mini");
+
+// IChatClient로 변환 (확장 메서드 사용)
+IChatClient aiClient = chatClient.AsIChatClient();
 ```
 
-## 필요한 확장 메서드 분석
+## 확장 메서드 분석
 
 ### AsIChatClient() 확장 메서드
-- `Microsoft.Extensions.AI.OpenAI` 패키지에서 제공 예상
-- `ChatClient`를 `IChatClient`로 변환
+- **패키지**: `Microsoft.Extensions.AI.OpenAI`
+- **기능**: OpenAI의 `ChatClient`를 `Microsoft.Extensions.AI.IChatClient`로 변환
+- **네임스페이스**: `Microsoft.Extensions.AI`
 
-## 해결해야 할 문제들
+## 완전한 사용 예제
 
-1. **IChatClient의 올바른 메서드 찾기**
-   - `CompleteAsync` 대신 사용해야 할 메서드명
-   - 올바른 파라미터 시그니처
+### Azure OpenAI와 함께 사용
+```csharp
+using Microsoft.Extensions.AI;
+using Azure.AI.OpenAI;
+using System.ClientModel;
 
-2. **확장 메서드 가용성 확인**
-   - `AsIChatClient()` 메서드의 실제 네임스페이스
-   - 필요한 using 문
+// 클라이언트 초기화
+var azureClient = new AzureOpenAIClient(
+    new Uri("https://your-resource.openai.azure.com"), 
+    new ApiKeyCredential("your-api-key")
+);
 
-3. **ChatCompletion vs ChatMessage**
-   - 응답 타입의 올바른 처리 방법
-   - `response.Message` vs 다른 속성
+// IChatClient로 변환
+IChatClient chatClient = azureClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+
+// 채팅 완료 요청
+var messages = new List<ChatMessage>
+{
+    new ChatMessage(ChatRole.System, "You are a helpful assistant"),
+    new ChatMessage(ChatRole.User, "Hello, how are you?")
+};
+
+var response = await chatClient.CompleteAsync(messages);
+Console.WriteLine(response.Message.Text);
+```
+
+### GitHub Models와 함께 사용
+```csharp
+var githubClient = new AzureOpenAIClient(
+    new Uri("https://models.inference.ai.azure.com"), 
+    new ApiKeyCredential("your-github-token")
+);
+
+IChatClient chatClient = githubClient.GetChatClient("gpt-4o-mini").AsIChatClient();
+// 나머지는 동일...
+```
+
+## 해결된 문제들 ✅
+
+1. **IChatClient.CompleteAsync 메서드**
+   - ✅ 올바른 시그니처: `Task<ChatCompletion> CompleteAsync(IList<ChatMessage>, ChatOptions, CancellationToken)`
+   - ✅ 파라미터: 메시지 리스트, 옵션(선택), 취소 토큰(선택)
+
+2. **확장 메서드**
+   - ✅ `AsIChatClient()`: `Microsoft.Extensions.AI.OpenAI` 패키지에서 제공
+   - ✅ 필요한 using: `Microsoft.Extensions.AI`
+
+3. **응답 처리**
+   - ✅ 반환 타입: `ChatCompletion`
+   - ✅ 메시지 접근: `response.Message.Text`
 
 ## 다음 단계
 
-1. 실제 API 문서 또는 샘플 코드 참조
-2. Microsoft의 공식 GitHub 샘플 확인
-3. 올바른 메서드명과 사용법 적용
-4. 빌드 성공 후 런타임 테스트
-
-## 임시 해결 방안
-
-현재 빌드 오류를 해결하기 위해:
-1. IChatClient 대신 직접 ChatClient 사용
-2. 또는 올바른 메서드명 찾아서 적용
-3. 확장 메서드 없이 직접 구현
+1. ✅ 올바른 API 사용법 확인 완료
+2. 🔄 코드에 올바른 메서드 적용
+3. 🔄 빌드 테스트
+4. 🔄 런타임 기능 테스트
 
 ---
 
