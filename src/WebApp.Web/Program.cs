@@ -1,5 +1,6 @@
 using WebApp.Web;
 using WebApp.Web.Components;
+using WebApp.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,12 +13,12 @@ builder.Services.AddRazorComponents()
 
 builder.Services.AddOutputCache();
 
-builder.Services.AddHttpClient<WeatherApiClient>(client =>
-    {
-        // This URL uses "https+http://" to indicate HTTPS is preferred over HTTP.
-        // Learn more about service discovery scheme resolution at https://aka.ms/dotnet/sdschemes.
-        client.BaseAddress = new("https+http://apiservice");
-    });
+// Add Data Protection for secure configuration storage
+builder.Services.AddDataProtection();
+
+// Register AI services
+builder.Services.AddScoped<IConfigurationService, ConfigurationService>();
+builder.Services.AddScoped<IAIService, AIService>();
 
 var app = builder.Build();
 
