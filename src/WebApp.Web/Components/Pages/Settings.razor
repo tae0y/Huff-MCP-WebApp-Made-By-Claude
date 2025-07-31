@@ -1,0 +1,274 @@
+@page "/settings"
+@using WebApp.Web.Services
+@inject IConfigurationService ConfigurationService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Settings</PageTitle>
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3>AI Configuration Settings</h3>
+                </div>
+                <div class="card-body">
+                    @if (!string.IsNullOrEmpty(statusMessage))
+                    {
+                        <div class="alert @(isError ? "alert-danger" : "alert-success") alert-dismissible fade show" role="alert">
+                            @statusMessage
+                            <button type="button" class="btn-close" @onclick="ClearStatusMessage"></button>
+                        </div>
+                    }
+
+                    <form @onsubmit="SaveSettings" @onsubmit:preventDefault="true">
+                        <div class="mb-3">
+                            <label for="hfToken" class="form-label">
+                                Hugging Face Access Token <span class="text-danger">*</span>
+                                @if (config.HasHuggingFaceConfig)
+                                {
+                                    <span class="badge bg-success ms-2">Configured</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-warning ms-2">Required</span>
+                                }
+                            </label>
+                            <div class="input-group">
+                                <input type="@(showHfToken ? "text" : "password")" 
+                                       class="form-control" 
+                                       id="hfToken" 
+                                       @bind="config.HuggingFaceToken" 
+                                       placeholder="Enter your Hugging Face token" />
+                                <button class="btn btn-outline-secondary" type="button" @onclick="() => showHfToken = !showHfToken">
+                                    <i class="bi @(showHfToken ? "bi-eye-slash" : "bi-eye")"></i>
+                                </button>
+                            </div>
+                            <div class="form-text">Required for MCP server integration and AI tools.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="modelName" class="form-label">Model Name</label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="modelName" 
+                                   @bind="config.ModelName" 
+                                   placeholder="gpt-4o-mini" />
+                            <div class="form-text">The AI model to use for chat responses.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="hfMcpServer" class="form-label">Hugging Face MCP Server</label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="hfMcpServer" 
+                                   @bind="config.HuggingFaceMcpServer" 
+                                   placeholder="https://huggingface.co/mcp" />
+                            <div class="form-text">MCP server endpoint for Hugging Face integration.</div>
+                        </div>
+
+                        <hr />
+
+                        <h5>AI Provider Configuration</h5>
+                        <p class="text-muted">Configure at least one AI provider below:</p>
+
+                        <div class="mb-3">
+                            <label for="githubToken" class="form-label">
+                                GitHub Models Access Token
+                                @if (config.HasGitHubModelsConfig)
+                                {
+                                    <span class="badge bg-success ms-2">Configured</span>
+                                }
+                            </label>
+                            <div class="input-group">
+                                <input type="@(showGithubToken ? "text" : "password")" 
+                                       class="form-control" 
+                                       id="githubToken" 
+                                       @bind="config.GitHubModelsToken" 
+                                       placeholder="Enter your GitHub Models token" />
+                                <button class="btn btn-outline-secondary" type="button" @onclick="() => showGithubToken = !showGithubToken">
+                                    <i class="bi @(showGithubToken ? "bi-eye-slash" : "bi-eye")"></i>
+                                </button>
+                            </div>
+                            <div class="form-text">Optional: GitHub Models for AI chat functionality.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="azureEndpoint" class="form-label">
+                                Azure OpenAI Service Endpoint
+                                @if (config.HasAzureOpenAIConfig)
+                                {
+                                    <span class="badge bg-success ms-2">Configured</span>
+                                }
+                            </label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="azureEndpoint" 
+                                   @bind="config.AzureOpenAIEndpoint" 
+                                   placeholder="https://your-resource.openai.azure.com" />
+                            <div class="form-text">Optional: Azure OpenAI service endpoint URL.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="azureApiKey" class="form-label">Azure OpenAI API Key</label>
+                            <div class="input-group">
+                                <input type="@(showAzureKey ? "text" : "password")" 
+                                       class="form-control" 
+                                       id="azureApiKey" 
+                                       @bind="config.AzureOpenAIApiKey" 
+                                       placeholder="Enter your Azure OpenAI API key" />
+                                <button class="btn btn-outline-secondary" type="button" @onclick="() => showAzureKey = !showAzureKey">
+                                    <i class="bi @(showAzureKey ? "bi-eye-slash" : "bi-eye")"></i>
+                                </button>
+                            </div>
+                            <div class="form-text">Required if using Azure OpenAI endpoint.</div>
+                        </div>
+
+                        <hr />
+
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6>Configuration Status:</h6>
+                                <div>
+                                    <span class="badge @(config.HasHuggingFaceConfig ? "bg-success" : "bg-danger") me-2">
+                                        Hugging Face: @(config.HasHuggingFaceConfig ? "Ready" : "Missing")
+                                    </span>
+                                    <span class="badge @(config.HasValidAIProvider ? "bg-success" : "bg-warning") me-2">
+                                        AI Provider: @(config.HasValidAIProvider ? "Ready" : "Required")
+                                    </span>
+                                </div>
+                            </div>
+                            <div>
+                                <button type="button" class="btn btn-secondary me-2" @onclick="LoadSettings">
+                                    Reset
+                                </button>
+                                <button type="submit" class="btn btn-primary" disabled="@isSaving">
+                                    @if (isSaving)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-2"></span>
+                                    }
+                                    Save Settings
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5>Quick Setup</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">Get started quickly with these popular AI providers:</p>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <h6>GitHub Models</h6>
+                                    <p class="small">Free tier available</p>
+                                    <a href="https://github.com/marketplace/models" target="_blank" class="btn btn-outline-primary btn-sm">
+                                        Get Token
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <h6>Azure OpenAI</h6>
+                                    <p class="small">Enterprise ready</p>
+                                    <a href="https://portal.azure.com/" target="_blank" class="btn btn-outline-primary btn-sm">
+                                        Azure Portal
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card h-100">
+                                <div class="card-body text-center">
+                                    <h6>Hugging Face</h6>
+                                    <p class="small">Required for MCP tools</p>
+                                    <a href="https://huggingface.co/settings/tokens" target="_blank" class="btn btn-outline-primary btn-sm">
+                                        Get Token
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private AIConfiguration config = new();
+    private bool showHfToken = false;
+    private bool showGithubToken = false;
+    private bool showAzureKey = false;
+    private bool isSaving = false;
+    private string statusMessage = string.Empty;
+    private bool isError = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSettings();
+    }
+
+    private async Task LoadSettings()
+    {
+        try
+        {
+            config = await ConfigurationService.GetConfigurationAsync();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            SetStatusMessage($"Error loading settings: {ex.Message}", true);
+        }
+    }
+
+    private async Task SaveSettings()
+    {
+        if (isSaving) return;
+
+        isSaving = true;
+        ClearStatusMessage();
+
+        try
+        {
+            var isValid = await ConfigurationService.ValidateConfigurationAsync(config);
+            if (!isValid)
+            {
+                SetStatusMessage("Invalid configuration. Please check required fields and try again.", true);
+                return;
+            }
+
+            await ConfigurationService.SaveConfigurationAsync(config);
+            SetStatusMessage("Settings saved successfully! Configuration is ready for use.", false);
+        }
+        catch (Exception ex)
+        {
+            SetStatusMessage($"Error saving settings: {ex.Message}", true);
+        }
+        finally
+        {
+            isSaving = false;
+            StateHasChanged();
+        }
+    }
+
+    private void SetStatusMessage(string message, bool error)
+    {
+        statusMessage = message;
+        isError = error;
+        StateHasChanged();
+    }
+
+    private void ClearStatusMessage()
+    {
+        statusMessage = string.Empty;
+        isError = false;
+    }
+}
