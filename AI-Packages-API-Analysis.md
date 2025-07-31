@@ -143,10 +143,36 @@ IChatClient chatClient = githubClient.GetChatClient("gpt-4o-mini").AsIChatClient
    - ✅ 반환 타입: `ChatCompletion`
    - ✅ 메시지 접근: `response.Message.Text`
 
+## 발견된 문제와 해결책
+
+### 문제: CompleteAsync 메서드를 찾을 수 없음
+- 오류: `IChatClient`에는 'CompleteAsync'에 대한 정의가 포함되어 있지 않음
+- 원인: 확장 메서드가 제대로 로드되지 않음
+
+### 가능한 해결책들
+
+1. **직접 OpenAI ChatClient 사용** (추천)
+```csharp
+using OpenAI.Chat;
+using Azure.AI.OpenAI;
+
+// ChatClient를 직접 사용
+ChatClient chatClient = azureClient.GetChatClient("gpt-4o-mini");
+var response = await chatClient.CompleteChatAsync(messages);
+```
+
+2. **패키지 버전 호환성 확인**
+   - Microsoft.Extensions.AI.OpenAI 패키지가 preview 버전
+   - 다른 패키지들과의 호환성 문제 가능
+
+3. **네임스페이스 문제**
+   - 올바른 using 문 추가 필요
+   - 확장 메서드가 다른 네임스페이스에 있을 가능성
+
 ## 다음 단계
 
 1. ✅ 올바른 API 사용법 확인 완료
-2. 🔄 코드에 올바른 메서드 적용
+2. 🔄 ChatClient 직접 사용으로 변경
 3. 🔄 빌드 테스트
 4. 🔄 런타임 기능 테스트
 

@@ -1,5 +1,6 @@
 using Microsoft.Extensions.AI;
 using Azure.AI.OpenAI;
+using OpenAI.Chat;
 using System.ClientModel;
 using System.Text.RegularExpressions;
 
@@ -30,14 +31,14 @@ public class AIService : IAIService
                 };
             }
 
-            var chatMessages = new List<ChatMessage>
+            var chatMessages = new List<OpenAI.Chat.ChatMessage>
             {
-                new ChatMessage(ChatRole.User, message)
+                new OpenAI.Chat.UserChatMessage(message)
             };
 
-            var chatResponse = await chatClient.CompleteAsync(chatMessages, cancellationToken: cancellationToken);
+            var chatResponse = await chatClient.CompleteChatAsync(chatMessages, cancellationToken: cancellationToken);
             
-            return ProcessResponse(chatResponse.Message);
+            return ProcessResponse(chatResponse.Value.Content[0].Text);
         }
         catch (Exception ex)
         {
@@ -56,7 +57,7 @@ public class AIService : IAIService
         return Task.FromResult(new List<AITool>());
     }
 
-    private async Task<IChatClient?> GetChatClientAsync()
+    private async Task<ChatClient?> GetChatClientAsync()
     {
         var config = await _configurationService.GetConfigurationAsync();
         
@@ -66,7 +67,7 @@ public class AIService : IAIService
             try
             {
                 var azureClient = new AzureOpenAIClient(new Uri(config.AzureOpenAIEndpoint), new ApiKeyCredential(config.AzureOpenAIApiKey));
-                return azureClient.GetChatClient(config.ModelName).AsIChatClient();
+                return azureClient.GetChatClient(config.ModelName);
             }
             catch (Exception ex)
             {
@@ -80,7 +81,7 @@ public class AIService : IAIService
             try
             {
                 var githubClient = new AzureOpenAIClient(new Uri("https://models.inference.ai.azure.com"), new ApiKeyCredential(config.GitHubModelsToken));
-                return githubClient.GetChatClient(config.ModelName).AsIChatClient();
+                return githubClient.GetChatClient(config.ModelName);
             }
             catch (Exception ex)
             {
@@ -91,10 +92,10 @@ public class AIService : IAIService
         return null;
     }
 
-    private AIResponse ProcessResponse(ChatMessage response)
+    private AIResponse ProcessResponse(string textContent)
     {
         var result = new AIResponse();
-        var textContent = response.Text ?? string.Empty;
+        textContent = textContent ?? string.Empty;
 
         // Extract images from response
         var imageUrls = ExtractImageUrls(textContent);
