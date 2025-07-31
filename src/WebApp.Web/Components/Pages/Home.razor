@@ -76,11 +76,6 @@
                             }
                             Send
                         </button>
-                        
-                        <!-- 디버깅용 정보 -->
-                        <div class="mt-2 small text-muted">
-                            Debug: Message='@currentMessage' | Length=@currentMessage.Length | IsWhiteSpace=@string.IsNullOrWhiteSpace(currentMessage) | IsLoading=@isLoading
-                        </div>
                     </div>
                 </div>
             </div>
@@ -203,11 +198,6 @@
     private void ToggleToolsPanel()
     {
         showTools = !showTools;
-    }
-
-    private async Task OnInputChanged()
-    {
-        await InvokeAsync(StateHasChanged); // UI 업데이트 강제 실행
     }
 
     private class ChatMessage
