@@ -123,21 +123,21 @@ public class AIWebAppIntegrationTests : PageTest
         // Arrange & Act
         await Page.GotoAsync($"{BASE_URL}/settings");
         
-        // Assert - Hugging Face 설정 상태 배지 확인
-        var hfBadge = Page.Locator("span.badge:has-text('Required')");
-        await Expect(hfBadge).ToBeVisibleAsync();
-        
         // Assert - 설정 상태 섹션 확인
         var statusSection = Page.Locator("h6:has-text('Configuration Status:')");
         await Expect(statusSection).ToBeVisibleAsync();
         
-        // Assert - Hugging Face 상태 배지 확인
+        // Assert - Hugging Face 상태 배지 확인 (더 구체적인 selector 사용)
         var hfStatusBadge = Page.Locator("span.badge:has-text('Hugging Face: Missing')");
         await Expect(hfStatusBadge).ToBeVisibleAsync();
         
         // Assert - AI Provider 상태 배지 확인
         var providerStatusBadge = Page.Locator("span.badge:has-text('AI Provider: Required')");
         await Expect(providerStatusBadge).ToBeVisibleAsync();
+        
+        // Assert - Required 배지가 적어도 하나는 존재 확인 (first() 사용)
+        var requiredBadge = Page.Locator("span.badge:has-text('Required')").First;
+        await Expect(requiredBadge).ToBeVisibleAsync();
     }
 
     [TestMethod]
@@ -181,13 +181,16 @@ public class AIWebAppIntegrationTests : PageTest
         var messageInput = Page.Locator("input[placeholder*='Type your message here']");
         var sendButton = Page.Locator("button:has-text('Send')");
         
+        // Assert - 초기 상태에서 Send 버튼이 비활성화되어 있는지 확인
+        await Expect(sendButton).ToBeDisabledAsync();
+        
         // Act - 메시지 입력
         await messageInput.FillAsync("Hello, this is a test message");
         
         // Assert - 입력값 확인
         await Expect(messageInput).ToHaveValueAsync("Hello, this is a test message");
         
-        // Assert - Send 버튼이 활성화되었는지 확인
+        // Assert - Send 버튼이 활성화되었는지 확인 (입력 후)
         await Expect(sendButton).ToBeEnabledAsync();
     }
 
@@ -203,13 +206,16 @@ public class AIWebAppIntegrationTests : PageTest
         // Act - 제안 버튼 클릭
         await whoAmIButton.ClickAsync();
         
-        // Assert - 입력 필드에 제안 텍스트가 채워졌는지 확인
-        // 참고: 실제 AI 호출이 일어나므로 로딩 상태나 오류 메시지가 나타날 수 있음
-        await Page.WaitForTimeoutAsync(1000); // 잠시 대기
+        // Assert - 로딩 상태나 AI 응답 처리 대기
+        await Page.WaitForTimeoutAsync(2000); // 더 긴 대기
         
-        // 채팅 영역에 사용자 메시지가 나타났는지 확인
-        var userMessage = Page.Locator("div:has-text('You: who am I')");
+        // 채팅 영역에 사용자 메시지가 나타났는지 확인 (더 구체적인 selector)
+        var userMessage = Page.Locator("strong:has-text('You:')").Locator("..").Filter(new() { HasText = "who am I" });
         await Expect(userMessage).ToBeVisibleAsync();
+        
+        // 또는 AI 응답이나 오류 메시지가 나타났는지 확인
+        var aiResponseOrError = Page.Locator("strong:has-text('AI:')").First;
+        await Expect(aiResponseOrError).ToBeVisibleAsync();
     }
 
     [TestMethod]
@@ -221,14 +227,19 @@ public class AIWebAppIntegrationTests : PageTest
         var messageInput = Page.Locator("input[placeholder*='Type your message here']");
         var sendButton = Page.Locator("button:has-text('Send')");
         
-        // Act - 메시지 전송
+        // Act - 메시지 입력 (버튼이 활성화될 때까지 대기)
         await messageInput.FillAsync("Test message");
+        
+        // Send 버튼이 활성화될 때까지 대기
+        await Expect(sendButton).ToBeEnabledAsync();
+        
+        // 메시지 전송
         await sendButton.ClickAsync();
         
-        // Assert - 오류 메시지 확인
-        await Page.WaitForTimeoutAsync(2000); // API 호출 대기
+        // Assert - 오류 메시지 확인 (더 긴 대기시간과 구체적인 selector)
+        await Page.WaitForTimeoutAsync(3000); // API 호출 대기
         
-        var errorMessage = Page.Locator("div:has-text('Error: No configured AI provider available for chat')");
+        var errorMessage = Page.Locator("div:has-text('Error:')").Filter(new() { HasText = "No configured AI provider" });
         await Expect(errorMessage).ToBeVisibleAsync();
     }
 
@@ -239,7 +250,14 @@ public class AIWebAppIntegrationTests : PageTest
         await Page.GotoAsync($"{BASE_URL}/settings");
         
         var hfTokenInput = Page.Locator("input#hfToken");
-        var hfToggleButton = hfTokenInput.Locator("..").Locator("button");
+        // input-group 구조에서 버튼 찾기
+        var hfToggleButton = Page.Locator("input#hfToken").Locator("+ button");
+        
+        // 만약 위 selector가 안되면 다른 방법 시도
+        if (await hfToggleButton.CountAsync() == 0)
+        {
+            hfToggleButton = Page.Locator("div.input-group:has(input#hfToken) button");
+        }
         
         // Assert - 초기 상태는 password 타입
         await Expect(hfTokenInput).ToHaveAttributeAsync("type", "password");
@@ -247,11 +265,17 @@ public class AIWebAppIntegrationTests : PageTest
         // Act - 토글 버튼 클릭
         await hfToggleButton.ClickAsync();
         
+        // 약간의 대기 (상태 변경 처리)
+        await Page.WaitForTimeoutAsync(100);
+        
         // Assert - 타입이 text로 변경되었는지 확인
         await Expect(hfTokenInput).ToHaveAttributeAsync("type", "text");
         
         // Act - 다시 토글 버튼 클릭
         await hfToggleButton.ClickAsync();
+        
+        // 약간의 대기 (상태 변경 처리)
+        await Page.WaitForTimeoutAsync(100);
         
         // Assert - 다시 password 타입으로 변경되었는지 확인
         await Expect(hfTokenInput).ToHaveAttributeAsync("type", "password");
