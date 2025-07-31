@@ -172,9 +172,11 @@ var response = await chatClient.CompleteChatAsync(messages);
 ## 다음 단계
 
 1. ✅ 올바른 API 사용법 확인 완료
-2. 🔄 ChatClient 직접 사용으로 변경
-3. 🔄 빌드 테스트
-4. 🔄 런타임 기능 테스트
+2. ✅ ChatClient 직접 사용으로 변경
+3. ✅ 빌드 테스트 성공
+4. ✅ Aspire 앱 실행 성공 (`https://localhost:17149`)
+5. 🔄 Playwright 통합 테스트 작성
+6. 🔄 AI 기능 테스트
 
 ---
 
